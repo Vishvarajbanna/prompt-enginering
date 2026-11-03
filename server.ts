@@ -1,25 +1,30 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Initialize GoogleGenAI server-side with telemetry header
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Initialize GoogleGenAI server-side with telemetry header lazily to prevent startup crashes
+function getAi() {
+  return new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 const DEFAULT_MODEL = 'gemini-3.8-flash';
 
@@ -58,7 +63,7 @@ app.post('/api/generate', async (req, res) => {
     }
 
     const startTime = Date.now();
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
       model: DEFAULT_MODEL,
       contents: prompt,
       config,
@@ -125,12 +130,12 @@ app.post('/api/battle', async (req, res) => {
     const startB = Date.now();
 
     const [resA, resB] = await Promise.allSettled([
-      ai.models.generateContent({
+      getAi().models.generateContent({
         model: DEFAULT_MODEL,
         contents: finalPromptA,
         config: configA,
       }),
-      ai.models.generateContent({
+      getAi().models.generateContent({
         model: DEFAULT_MODEL,
         contents: finalPromptB,
         config: configB,
@@ -214,7 +219,7 @@ Provide an objective evaluation formatted as valid JSON adhering to this schema:
   "techniqueInsight": "Deep educational takeaway on why the prompt design differences changed the result."
 }`;
 
-        const judgeResponse = await ai.models.generateContent({
+        const judgeResponse = await getAi().models.generateContent({
           model: DEFAULT_MODEL,
           contents: judgePrompt,
           config: {
@@ -284,7 +289,7 @@ Return a structured JSON report with an overall score (0-100), key metrics (0-10
 1. Version A: "Structured & Delimited" (Focuses on clear sections, XML tags, explicit constraints, and output format)
 2. Version B: "Few-Shot & Chain-of-Thought" (Focuses on step-by-step thinking breakdown and demonstration examples)`;
 
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
       model: DEFAULT_MODEL,
       contents: doctorInstructions,
       config: {
@@ -376,7 +381,7 @@ app.post('/api/grade-quest', async (req, res) => {
 
       const start = Date.now();
       try {
-        const genRes = await ai.models.generateContent({
+        const genRes = await getAi().models.generateContent({
           model: DEFAULT_MODEL,
           contents: populatedPrompt,
           config,
@@ -421,7 +426,7 @@ Evaluate each test case for compliance with the criteria and test expectations.
 Grade the submission with an overall pass/fail, a score out of 100, itemized feedback per test case, and advice on how to improve the prompt.
 Adhere strictly to this JSON schema:`;
 
-    const judgeEval = await ai.models.generateContent({
+    const judgeEval = await getAi().models.generateContent({
       model: DEFAULT_MODEL,
       contents: judgePrompt,
       config: {
@@ -468,6 +473,7 @@ async function startServer() {
   const isDev = process.env.NODE_ENV !== 'production';
 
   if (isDev) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
