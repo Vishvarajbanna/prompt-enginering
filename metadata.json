@@ -1,0 +1,6 @@
+{
+  "name": "PromptCraft Studio",
+  "description": "Interactive playground and learning arena to master prompt engineering techniques: Few-Shot, Chain-of-Thought, ReAct, Role prompting, Delimiters, System Instructions, and A/B Battle comparisons with real-time AI testing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
